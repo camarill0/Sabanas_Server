@@ -487,6 +487,11 @@ def _frame_to_rows_att(tbl: pd.DataFrame, id_sabanas: int, telefono_archivo: Opt
         # MSISDNs
         raw_a = numero_a.iloc[i] if numero_a is not None else None
         raw_b = numero_b.iloc[i] if numero_b is not None else None
+        # En algunos archivos AT&T, cuando T_REG = ENT, DEST corresponde a numero_a
+        # y NUM_A corresponde a numero_b. Aplicar swap solo en ese caso.
+        treg_val = treg_raw.iloc[i] if treg_raw is not None else None
+        if _norm(treg_val) == "ent":
+            raw_a, raw_b = raw_b, raw_a
         a_clean = _clean_msisdn(raw_a) if raw_a is not None else None
         b_clean = _clean_msisdn(raw_b) if raw_b is not None else None
         a = a_clean if a_clean is not None else (str(raw_a).strip() if raw_a not in (None, "") else None)
@@ -497,7 +502,6 @@ def _frame_to_rows_att(tbl: pd.DataFrame, id_sabanas: int, telefono_archivo: Opt
 
         # Tipo (entero) desde SERV/T_REG (o fallback textual)
         serv_val = serv_raw.iloc[i] if serv_raw is not None else None
-        treg_val = treg_raw.iloc[i] if treg_raw is not None else None
         tipo_txt = tipo_raw.iloc[i] if tipo_raw is not None else None
         id_tipo = _map_tipo_att(serv_val, treg_val, numero_a=a, telefono=tel, tipo_textual_fallback=tipo_txt)
 
@@ -557,6 +561,16 @@ def _frame_to_rows_att(tbl: pd.DataFrame, id_sabanas: int, telefono_archivo: Opt
         # 2) Debe tener algún identificador de línea (número A o teléfono)
         if not (r.get("numero_a") or r.get("telefono")):
             return False
+
+        # Para registros entrantes (ENT), permitir filas sin coordenadas/azimuth
+        id_tipo = r.get("id_tipo_registro")
+        if id_tipo in (
+            TipoRegistroSabana.Mensaje2ViasEnt.value,
+            TipoRegistroSabana.Mensaje2ViasSal.value,
+            TipoRegistroSabana.VozEntrante.value,
+            TipoRegistroSabana.VozSaliente.value,
+        ):
+            return True
 
         # 3) Debe tener latitud y longitud crudas (texto) para saber que hay coordenadas
         if not r.get("latitud") or not r.get("longitud"):
