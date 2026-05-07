@@ -85,9 +85,12 @@ def _clean_msisdn(x: str) -> Optional[str]:
     if not es_numero_valido(x):
         return None
     only = re.sub(r"\D", "", str(x))
-    if only:
-        return only
-    return str(x).strip()
+    if not only:
+        return None
+    # quitar prefijos de país "52" (si sobra más de 10 dígitos), igual que AT&T
+    while only.startswith("52") and len(only) > 10:
+        only = only[2:]
+    return only
 
 
 def _clean_imei(x: str) -> Optional[str]:
