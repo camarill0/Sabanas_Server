@@ -504,7 +504,24 @@ def run_telcel_v1_etl(id_sabanas: int, local_path: str, correlation_id: Optional
     imeis = {r["imei"]: r["imei"] for r in all_rows if r.get("imei")}
     unique_imeis = list(imeis.values())
 
-    imsis = {r["numero_a"]: r["numero_a"] for r in all_rows if r.get("numero_a") and len(str(r["numero_a"])) > 12}
+    def _scalar_str(v) -> Optional[str]:
+        """Convierte valores potencialmente no escalares (p.ej. pandas.Series) a string seguro."""
+        if v is None:
+            return None
+        # Evitar el caso: truth value of a Series is ambiguous
+        if isinstance(v, pd.Series):
+            if v.empty:
+                return None
+            v = v.iloc[0]
+        s = str(v).strip()
+        return s or None
+
+    imsis = {
+        na: na
+        for r in all_rows
+        for na in [_scalar_str(r.get("numero_a"))]
+        if na is not None and len(na) > 12
+    }
     unique_imsis = list(imsis.values())
 
     db = SessionLocal()
